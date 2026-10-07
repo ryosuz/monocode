@@ -573,9 +573,7 @@ export function SettingsView({
               ) : null}
               {section === "chat" ? <ChatPage /> : null}
               {section === "keybindings" ? <KeybindingsPage /> : null}
-              {section === "monos" ? (
-                <MonosPage />
-              ) : null}
+              {section === "monos" ? <MonosPage /> : null}
               {section === "mcp" ? (
                 <McpSettings cwd={cwd} recents={recents} />
               ) : null}
@@ -3116,6 +3114,15 @@ function ProviderBinaryControl({
   );
 }
 
+/** Providers this fork never uses; kept out of the Agent CLIs list. */
+const UNLISTED_AGENT_CLIS: ReadonlySet<HarnessId> = new Set([
+  "omp",
+  "fx",
+  "hermes",
+  "antigravity",
+  "grok",
+]);
+
 function ProvidersPage({
   cwd,
   recents,
@@ -3256,45 +3263,47 @@ function ProvidersPage({
             : "A provider is listed as installed once its CLI is found on your PATH. Uninstalled CLIs stay listed but are left out of the model picker, as are installed ones with Show in picker off. The model beside a provider is what its new conversations start with; Use by default picks the provider itself. CLI paths are global for MonoCode and apply to every project."
         }
       >
-        {HARNESSES.map((harness) => {
-          const inPicker = project
-            ? !(projectSettings.hidden ?? []).includes(harness) &&
-              !hiddenGlobally.includes(harness)
-            : !hiddenGlobally.includes(harness);
-          // A globally hidden provider stays out of every project's picker, so
-          // the project toggle is shown locked rather than appearing to work.
-          const pickerLocked =
-            project != null && hiddenGlobally.includes(harness);
-          const selectedModel = project
-            ? (projectSettings.models?.[harness] ??
-              (projectSettings.defaultHarness === harness
-                ? projectSettings.defaultModel
-                : undefined) ??
-              defaultModels[harness] ??
-              (choice?.harness === harness
-                ? choice.model
-                : defaultModelId(harness)))
-            : (defaultModels[harness] ??
-              (choice?.harness === harness
-                ? choice.model
-                : defaultModelId(harness)));
-          const isDefault = project
-            ? effectiveDefaultHarness === harness
-            : choice?.harness === harness;
-          return (
-            <ProviderRow
-              key={harness}
-              harness={harness}
-              selectedModel={selectedModel}
-              isDefault={isDefault}
-              inPicker={inPicker}
-              pickerLocked={pickerLocked}
-              onDefault={onDefault}
-              onModelChange={onModelChange}
-              onPickerVisible={(visible) => onPickerVisible(harness, visible)}
-            />
-          );
-        })}
+        {HARNESSES.filter((harness) => !UNLISTED_AGENT_CLIS.has(harness)).map(
+          (harness) => {
+            const inPicker = project
+              ? !(projectSettings.hidden ?? []).includes(harness) &&
+                !hiddenGlobally.includes(harness)
+              : !hiddenGlobally.includes(harness);
+            // A globally hidden provider stays out of every project's picker, so
+            // the project toggle is shown locked rather than appearing to work.
+            const pickerLocked =
+              project != null && hiddenGlobally.includes(harness);
+            const selectedModel = project
+              ? (projectSettings.models?.[harness] ??
+                (projectSettings.defaultHarness === harness
+                  ? projectSettings.defaultModel
+                  : undefined) ??
+                defaultModels[harness] ??
+                (choice?.harness === harness
+                  ? choice.model
+                  : defaultModelId(harness)))
+              : (defaultModels[harness] ??
+                (choice?.harness === harness
+                  ? choice.model
+                  : defaultModelId(harness)));
+            const isDefault = project
+              ? effectiveDefaultHarness === harness
+              : choice?.harness === harness;
+            return (
+              <ProviderRow
+                key={harness}
+                harness={harness}
+                selectedModel={selectedModel}
+                isDefault={isDefault}
+                inPicker={inPicker}
+                pickerLocked={pickerLocked}
+                onDefault={onDefault}
+                onModelChange={onModelChange}
+                onPickerVisible={(visible) => onPickerVisible(harness, visible)}
+              />
+            );
+          },
+        )}
       </Group>
 
       <Group title="Advanced">

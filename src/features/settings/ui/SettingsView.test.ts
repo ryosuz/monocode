@@ -747,7 +747,9 @@ describe("settings pages", () => {
     expect(
       vi.mocked(invoke).mock.calls.some(([command]) => command === "harness_exec"),
     ).toBe(false);
-    for (const harness of HARNESSES) {
+    // omp/fx/hermes/antigravity/grok are unlisted in this fork's Agent CLIs page.
+    const unlisted = new Set(["omp", "fx", "hermes", "antigravity", "grok"]);
+    for (const harness of HARNESSES.filter((h) => !unlisted.has(h))) {
       expect(
         container.querySelector(
           `[aria-label="Show ${HARNESS_TITLE[harness]} CLI details"]`,
