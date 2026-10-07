@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resetHarnessModelOverlays,
+  savePickerProviderVisible,
   setHarnessModels,
 } from "../../../features/sessions/model/models";
+import { setProjectProviderHidden } from "../../../features/sessions/model/projectProviders";
 import type { HarnessId } from "../../../features/sessions/model/session";
 import {
   HARNESS_IDLE_PARK_MS,
@@ -45,6 +47,7 @@ describe("harness registry", () => {
   afterEach(() => {
     resetHarnessModelOverlays();
     resetHarnessIdlePark();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -280,6 +283,55 @@ describe("harness registry", () => {
 
     expect(claude).toHaveBeenCalledOnce();
     expect(pi).not.toHaveBeenCalled();
+  });
+
+  it("skips a disabled Cursor catalog even for forced refreshes, and probes after re-enabling", async () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+    });
+    const cursor = vi.fn(async () => undefined);
+    const claude = vi.fn(async () => undefined);
+    registerHarness(stub("cursor", { refreshCatalog: cursor }));
+    registerHarness(stub("claude", { refreshCatalog: claude }));
+    savePickerProviderVisible("cursor", false);
+
+    await refreshHarnessCatalogs(["cursor", "claude"]);
+    await refreshHarnessCatalogs(["cursor"], { force: true });
+
+    expect(cursor).not.toHaveBeenCalled();
+    expect(claude).toHaveBeenCalledOnce();
+
+    savePickerProviderVisible("cursor", true);
+    await refreshHarnessCatalogs(["cursor"]);
+
+    expect(cursor).toHaveBeenCalledOnce();
+  });
+
+  it("respects the project's Cursor switch without disabling other projects", async () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+    });
+    const cursor = vi.fn(async () => undefined);
+    registerHarness(stub("cursor", { refreshCatalog: cursor }));
+    setProjectProviderHidden("/repo", "cursor", true);
+
+    await refreshHarnessCatalogs(["cursor"], { cwd: "/repo" });
+    await refreshHarnessCatalogs(["cursor"], { cwd: "/repo", force: true });
+
+    expect(cursor).not.toHaveBeenCalled();
+
+    await refreshHarnessCatalogs(["cursor"], { cwd: "/other" });
+
+    expect(cursor).toHaveBeenCalledOnce();
+
+    setProjectProviderHidden("/repo", "cursor", false);
+    await refreshHarnessCatalogs(["cursor"], { cwd: "/repo" });
+
+    expect(cursor).toHaveBeenCalledTimes(2);
   });
 
   it("does not spawn a catalog probe twice after a live list lands", async () => {

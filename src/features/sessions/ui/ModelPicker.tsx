@@ -442,7 +442,9 @@ export function ModelPicker({
 
   useEffect(() => {
     if (!open) return;
-    source.refresh([current.harness]);
+    if (pickerHarnesses.includes(current.harness)) {
+      source.refresh([current.harness]);
+    }
     setTab(
       coerceModelPickerTab(current.harness, (id) =>
         pickerHarnesses.includes(id),

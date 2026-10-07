@@ -354,6 +354,7 @@ import {
   saveLastModelSettings,
   saveRecentModelChoice,
 } from "../features/sessions/model/models";
+import { isProviderHidden } from "../features/sessions/model/projectProviders";
 
 import {
   buildPlanPrompt,
@@ -1610,7 +1611,11 @@ function Workspace({
     // Only the harnesses already in this window. Probing every installed CLI
     // at boot left unused agents (especially Pi) running in the background.
     const harnesses = [
-      ...new Set(sessionsRef.current.map((session) => session.harness)),
+      ...new Set(
+        sessionsRef.current
+          .filter((session) => !isProviderHidden(session.cwd, session.harness))
+          .map((session) => session.harness),
+      ),
     ];
     void refreshHarnessCatalogs(harnesses).then(() => {
       setSessions((prev) =>
@@ -1798,10 +1803,11 @@ function Workspace({
    * until the picker happened to be opened. Idempotent: refreshHarnessCatalogs
    * dedupes via hasLiveCatalog and its inflight map. */
   const activeHarness = active?.harness;
+  const activeHarnessCwd = active?.cwd;
   useEffect(() => {
     if (!activeHarness || !isLiveHarness(activeHarness)) return;
-    void refreshHarnessCatalogs([activeHarness]);
-  }, [activeHarness]);
+    void refreshHarnessCatalogs([activeHarness], { cwd: activeHarnessCwd });
+  }, [activeHarness, activeHarnessCwd]);
 
   const usageProviders = useMemo(() => {
     if (

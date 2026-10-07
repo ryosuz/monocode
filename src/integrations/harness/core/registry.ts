@@ -7,7 +7,11 @@ import type {
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { GeneratedSessionTitle } from "../../../features/sessions/model/sessionTitle";
 import type { PrContent } from "../../../features/source-control/model/gitText";
-import { hasLiveCatalog } from "../../../features/sessions/model/models";
+import {
+  hasLiveCatalog,
+  isPickerProviderVisible,
+} from "../../../features/sessions/model/models";
+import { isProviderHidden } from "../../../features/sessions/model/projectProviders";
 import type { UserQuestionReply } from "../../../features/sessions/model/userQuestion";
 import type { NativeCommandProvider } from "./nativeCommands";
 import type {
@@ -387,19 +391,25 @@ export function bindHarnessSession(
 
 /**
  * Probe model lists only for the harnesses the caller actually needs.
+ * Hidden providers must not be probed: some catalog probes start a login flow.
  * Boot used to refresh every adapter; that spawned unused CLIs (Pi with
  * extensions can sit at ~1GB) even when the workspace never touched them.
  */
 /** `force` re-reads a catalog that already loaded, e.g. after a CLI update. */
 export async function refreshHarnessCatalogs(
   ids: Iterable<HarnessId>,
-  options?: { force?: boolean },
+  options?: { force?: boolean; cwd?: string },
 ): Promise<void> {
   const wanted = new Set(ids);
   if (wanted.size === 0) return;
   await Promise.all(
     [...adapters.values()]
-      .filter((adapter) => wanted.has(adapter.id))
+      .filter(
+        (adapter) =>
+          wanted.has(adapter.id) &&
+          isPickerProviderVisible(adapter.id) &&
+          !isProviderHidden(options?.cwd, adapter.id),
+      )
       .map(async (adapter) => {
         if (!adapter.refreshCatalog) return;
         if (!options?.force && hasLiveCatalog(adapter.id)) return;

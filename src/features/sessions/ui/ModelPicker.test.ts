@@ -12,7 +12,7 @@ vi.mock("../../../integrations/harness/core/availability", () => ({
 }));
 
 vi.mock("../../../integrations/harness/core/registry", () => ({
-  refreshHarnessCatalogs: () => Promise.resolve(),
+  refreshHarnessCatalogs: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../../shared/ui/Popover", () => ({
@@ -66,9 +66,12 @@ vi.mock("../../../shared/ui/Popover", () => ({
 import { ModelControlPills, ModelPicker } from "./ModelPicker";
 import {
   resetHarnessModelOverlays,
+  savePickerProviderVisible,
   saveRecentModelChoice,
   setHarnessModels,
 } from "../model/models";
+import { setProjectProviderHidden } from "../model/projectProviders";
+import { refreshHarnessCatalogs } from "../../../integrations/harness/core/registry";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -77,6 +80,7 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
   resetHarnessModelOverlays();
+  vi.mocked(refreshHarnessCatalogs).mockClear();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -128,6 +132,40 @@ function inputText(input: HTMLInputElement, value: string) {
 }
 
 describe("model picker", () => {
+  it.each(["global", "project"])(
+    "does not probe the current Cursor while switched off in %s settings",
+    (scope) => {
+      if (scope === "global") savePickerProviderVisible("cursor", false);
+      else setProjectProviderHidden("/repo", "cursor", true);
+      act(() =>
+        root.render(
+          createElement(ModelPicker, {
+            harness: "cursor",
+            model: "cursor:composer-2.5",
+            project: "/repo",
+            onChange: vi.fn(),
+          }),
+        ),
+      );
+      const trigger = container.querySelector<HTMLButtonElement>(
+        'button[aria-haspopup="menu"]',
+      )!;
+
+      act(() => trigger.click());
+
+      expect(refreshHarnessCatalogs).not.toHaveBeenCalledWith(["cursor"]);
+
+      act(() => {
+        trigger.click();
+        if (scope === "global") savePickerProviderVisible("cursor", true);
+        else setProjectProviderHidden("/repo", "cursor", false);
+      });
+      act(() => trigger.click());
+
+      expect(refreshHarnessCatalogs).toHaveBeenCalledWith(["cursor"]);
+    },
+  );
+
   it("shows the model name and effort in the combined picker", () => {
     const onChange = vi.fn();
     const onSettingsChange = vi.fn();

@@ -24,6 +24,9 @@ import {
   HARNESS_TITLE,
 } from "../../sessions/model/session";
 import { saveMaskEmails, saveShowRemainingUsage } from "../model/displayPrefs";
+import * as modelStore from "../../sessions/model/models";
+import { setProjectProviderHidden } from "../../sessions/model/projectProviders";
+import * as harnessRegistry from "../../../integrations/harness/core/registry";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async () => undefined),
@@ -1054,6 +1057,13 @@ describe("settings search", () => {
 });
 
 describe("providers scope inheritance", () => {
+  function mockEmptyCursorCatalog() {
+    const modelsFor = modelStore.modelsFor;
+    vi.spyOn(modelStore, "modelsFor").mockImplementation((harness) =>
+      harness === "cursor" ? [] : modelsFor(harness),
+    );
+  }
+
   async function selectScope(label: string) {
     const trigger = container.querySelector<HTMLButtonElement>(
       '[aria-label^="Provider defaults scope"]',
@@ -1065,6 +1075,52 @@ describe("providers scope inheritance", () => {
     expect(option).toBeTruthy();
     await act(async () => option!.click());
   }
+
+  it("does not probe a disabled Cursor from settings and probes when switched on", async () => {
+    mockEmptyCursorCatalog();
+    modelStore.savePickerProviderVisible("cursor", false);
+    const refresh = vi
+      .spyOn(harnessRegistry, "refreshHarnessCatalogs")
+      .mockResolvedValue(undefined);
+
+    await render("providers");
+
+    expect(refresh).not.toHaveBeenCalledWith(["cursor"]);
+
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Show Cursor in the model picker"]',
+        )!
+        .click(),
+    );
+
+    expect(refresh).toHaveBeenCalledWith(["cursor"]);
+  });
+
+  it("skips the Cursor probe in a disabled project scope until switched on", async () => {
+    mockEmptyCursorCatalog();
+    setProjectProviderHidden("/repo", "cursor", true);
+    const refresh = vi
+      .spyOn(harnessRegistry, "refreshHarnessCatalogs")
+      .mockResolvedValue(undefined);
+    await render("providers");
+    refresh.mockClear();
+
+    await selectScope("repo");
+
+    expect(refresh).not.toHaveBeenCalledWith(["cursor"]);
+
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Show Cursor in the model picker"]',
+        )!
+        .click(),
+    );
+
+    expect(refresh).toHaveBeenCalledWith(["cursor"]);
+  });
 
   it("inherits the global default provider and picker visibility in project scope", async () => {
     localStorage.setItem(
