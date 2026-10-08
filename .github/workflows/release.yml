@@ -92,6 +92,7 @@ jobs:
             process.env.RUNNER_TEMP + "/tauri.release.conf.json",
             JSON.stringify(
               {
+                productName: "MonoCode",
                 bundle: { macOS: { signingIdentity: identity } },
                 plugins: {
                   updater: {
@@ -440,7 +441,7 @@ jobs:
       - run: npm ci
 
       - name: Build Linux packages
-        run: npm run build:linux
+        run: npm run build:linux -- --config '{"productName":"MonoCode"}'
 
       - name: Stage Linux packages
         run: |
@@ -492,7 +493,7 @@ jobs:
       - run: npm ci
 
       - name: Build rpm package
-        run: npm run build:fedora
+        run: npm run build:fedora -- --config '{"productName":"MonoCode"}'
 
       - name: Install and stage the generated rpm
         run: |
@@ -557,6 +558,7 @@ jobs:
             throw "TAURI_UPDATER_PUBKEY is required"
           }
           $config = @{
+            productName = "MonoCode"
             bundle = @{
               createUpdaterArtifacts = $true
             }
