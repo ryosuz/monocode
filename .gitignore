@@ -55,3 +55,6 @@ ehthumbs.db
 Desktop.ini
 pnpm-lock.yaml
 pnpm-workspace.yaml
+
+# Local document preview mockup
+/work/mono-document-preview.html
